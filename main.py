@@ -15,7 +15,7 @@ class Simulation():
 
     self.entities = deque()
 
-    for x in range(3):
+    for x in range(1):
       self.spawn("automata")
 
     for x in range(20):
@@ -42,11 +42,11 @@ class Simulation():
         if sfml.window.Keyboard.is_key_pressed(sfml.window.Keyboard.SPACE):
           pass
 
-        if sfml.window.Keyboard.is_key_pressed(sfml.window.Keyboard.RIGHT):
+        if self.debug and sfml.window.Keyboard.is_key_pressed(sfml.window.Keyboard.RIGHT):
           for entity in filter(lambda x: x.type is "automata", self.entities):
             entity.shape.rotation += 1
 
-        if sfml.window.Keyboard.is_key_pressed(sfml.window.Keyboard.LEFT):
+        if self.debug and sfml.window.Keyboard.is_key_pressed(sfml.window.Keyboard.LEFT):
           for entity in filter(lambda x: x.type is "automata", self.entities):
             entity.shape.rotation -= 1
 

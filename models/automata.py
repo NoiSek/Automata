@@ -54,11 +54,19 @@ class Automata(sfml.graphics.Drawable):
     if self.debug is False:
       return False
 
+    if self.target:
+      target = "{id} - {x}, {y}, {angle}".format(
+        id=self.target.id, 
+        x=self.target.shape.position.x, 
+        y=self.target.shape.position.y,
+        angle=self.get_angle_to_target()
+      )
+
     return "Age: {age}\nHunger: {health}\nObjective: {objective}\nTarget: {target}\nRotation: {rotation}".format(
         age=self.age,
         health=self.health,
         objective=self.objective,
-        target="%s: %d, %d" % (self.target.id, self.target.shape.position.x, self.target.shape.position.x) if self.target else "None",
+        target=target if self.target else "None",
         rotation=self.shape.rotation
       )
 
@@ -111,6 +119,26 @@ class Automata(sfml.graphics.Drawable):
 
     if self.health < 0:
       self.objective = "die"
+
+  def get_angle_to_target(self):
+    if not self.target:
+      return False
+        
+    origin = self.shape.position
+    reticle = self.debug_direction[1].position
+    target = self.target.shape.position
+
+    angle1 = math.atan2(reticle.y - origin.y, reticle.x - origin.x)
+    angle2 = math.atan2(target.y - origin.y, target.x - origin.x)
+
+    degrees = math.degrees(angle1 - angle2)
+    
+    # Convert to +- 1-180
+    if degrees > 180:
+      return -(180 + (180 - degrees))
+
+    else:
+      return degrees
 
   def set_position(self, x, y):
     if self.debug:
