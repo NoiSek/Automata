@@ -1,13 +1,25 @@
 import sfml
+import math
+import random
 
 class Automata(sfml.graphics.Drawable):
   def __init__(self, entity_id, x, y, debug=False):
     sfml.graphics.Drawable.__init__(self)
 
+    self.type = "automata"
+    self.spawning = True
     self.debug = debug
-    self.shape = sfml.graphics.CircleShape(15.0, 100)
+    self.shape = sfml.graphics.CircleShape(15.0, 3)
     self.shape.position = (x, y)
-    self.shape.fill_color = sfml.graphics.Color(220, 220, 220)
+    self.shape.fill_color = sfml.graphics.Color(255, 255, 255, 150)
+    self.shape.outline_color = sfml.graphics.Color(255, 255, 255)
+    self.shape.outline_thickness = 2
+    self.shape.origin = (15, 15)
+    self.shape.ratio = (0, 0)
+    self.shape.rotation = random.randrange(0, 359)
+
+    self.rotational_velocity = 0
+    self.directional_velocity = 0
 
     self.id = entity_id
     self.x = x
@@ -15,32 +27,39 @@ class Automata(sfml.graphics.Drawable):
 
     self.age = 0
     self.health = 7
+    self.speed = 1
     
-    self.hunger = sfml.system.Clock()
-    self.ticker = sfml.system.Clock()
+    self.hunger_ticker = sfml.system.Clock()
+    self.age_ticker = sfml.system.Clock()
+    self.spawn_ticker = sfml.system.Clock()
 
-    self.objective = "idle"
+    self.objective = "spawn"
     self.target = None
 
     if debug:
       self.font_roboto = sfml.graphics.Font.from_file("resources/Roboto-Light.ttf")
       self.debug_text = sfml.graphics.Text(self.debug_data(), self.font_roboto, 12)
       self.debug_text.color = sfml.graphics.Color(30, 200, 30)
-      self.debug_text.position = (self.x + 50, self.y - 50)
+      self.debug_text.position = (self.x + 25, self.y - 75)
 
-      self.debug_direction = sfml.graphics.Text("^", self.font_roboto, 24)
-      self.debug_direction.color = sfml.graphics.Color(30, 200, 30)
-      self.debug_direction.position = (self.x + 10, self.y - 25)
+      self.debug_target = sfml.graphics.VertexArray(sfml.graphics.PrimitiveType.LINES_STRIP, 2)
+      self.debug_target[0].position = self.shape.position
+      self.debug_target[1].position = self.shape.position
+
+      self.debug_direction = sfml.graphics.VertexArray(sfml.graphics.PrimitiveType.LINES_STRIP, 2)
+      self.debug_direction[0].position = self.shape.position
+      self.debug_direction[1].position = self.shape.position
 
   def debug_data(self):
     if self.debug is False:
       return False
 
-    return "Age: {age}\nHunger: {health}\nObjective: {objective}\nTarget: {target}".format(
+    return "Age: {age}\nHunger: {health}\nObjective: {objective}\nTarget: {target}\nRotation: {rotation}".format(
         age=self.age,
         health=self.health,
         objective=self.objective,
-        target=str(self.target)
+        target="%s: %d, %d" % (self.target.id, self.target.shape.position.x, self.target.shape.position.x) if self.target else "None",
+        rotation=self.shape.rotation
       )
 
   def draw(self, target, states):
@@ -49,11 +68,32 @@ class Automata(sfml.graphics.Drawable):
     if self.debug:
       self.debug_text.string = self.debug_data()
       target.draw(self.debug_text, states)
-      target.draw(self.debug_direction, states)
 
-  def check_hunger(self):
-    if self.hunger.elapsed_time.seconds > 2:
-      self.hunger.restart()
+      direction_x = (75 * math.sin(math.radians(self.shape.rotation))) + self.shape.position.x
+      direction_y = -(75 * math.cos(math.radians(self.shape.rotation))) + self.shape.position.y
+      self.debug_direction[1].position = (direction_x, direction_y)
+      target.draw(self.debug_direction)
+
+      if self.target:
+        self.debug_target[1].position = self.target.shape.position
+        target.draw(self.debug_target, states)
+
+  def calculate_position(self):
+    if self.directional_velocity is not 0:
+      x, y = self.shape.position
+      x_velocity = self.rotational_velocity * math.cos(self.shape.rotation)
+      y_velocity = self.rotational_velocity * math.sin(self.shape.rotation)
+
+      self.set_position(x + x_velocity, y + y_velocity)
+
+  def choose_action(self):
+    if self.objective is "eat" or self.objective is "eat!":
+      if self.target:
+        pass
+
+  def choose_objective(self):
+    if self.hunger_ticker.elapsed_time.seconds > 2:
+      self.hunger_ticker.restart()
       self.health -= 0.25
 
     if 6 < self.health:
@@ -61,6 +101,7 @@ class Automata(sfml.graphics.Drawable):
         self.objective = "mate"
       else:
         self.objective = "idle"
+        self.target = None
 
     if 3 < self.health <= 6:
       self.objective = "eat"
@@ -71,11 +112,36 @@ class Automata(sfml.graphics.Drawable):
     if self.health < 0:
       self.objective = "die"
 
+  def set_position(self, x, y):
+    if self.debug:
+      self.debug_text.position = (x + 25, y - 75)
+
+    self.shape.position = (x, y)
+
   def step(self):
-    if self.ticker.elapsed_time.seconds > 5:
-      self.ticker.restart()
+    if self.spawning:
+      if self.spawn_ticker.elapsed_time.milliseconds > 25:
+        self.shape.ratio += 0.05
+        self.spawn_ticker.restart()
+
+      if round(self.shape.ratio.x, 1) == 1:
+        self.spawning = False
+        del self.spawn_ticker
+    
+    if self.age_ticker.elapsed_time.seconds > 5:
+      self.age_ticker.restart()
       self.age += 1
 
-    self.check_hunger()
+    if self.age < 80:
+      self.speed = 1 - (self.age / 100)
+
+    else:
+      self.speed = 0.2
+
+    self.shape.rotate(self.rotational_velocity * self.speed)
+    self.calculate_position()
+
+    self.choose_objective()
+    self.choose_action()
 
     return self.objective

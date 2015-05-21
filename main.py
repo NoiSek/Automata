@@ -1,31 +1,34 @@
 import random
+import util
 import sfml
 
 from collections import deque
 from models.automata import Automata
 from models.algae import Algae
-from string import ascii_letters, digits
 
 class Simulation():
   def __init__(self):
     self.debug = True
     settings = sfml.window.ContextSettings(antialiasing=2)
     self.window = sfml.graphics.RenderWindow(sfml.window.VideoMode(1600, 900), "Automata", sfml.window.Style.DEFAULT, settings)
-    self.window.framerate_limit = 60
+    self.window.framerate_limit = 120
 
     self.entities = deque()
 
-    for x in range(2):
+    for x in range(3):
       self.spawn("automata")
 
-    for x in range(10):
+    for x in range(20):
       self.spawn("algae")
 
     self.algae_timer = sfml.system.Clock()
 
-  def gen_id(self, length=10):
-    chars = ascii_letters + digits
-    return "".join([random.choice(chars) for x in range(length)])
+    self.font_roboto = sfml.graphics.Font.from_file("resources/Roboto-Light.ttf")
+    self.fps_counter = sfml.graphics.Text("0 FPS", self.font_roboto, 24)
+    self.fps_counter.color = sfml.graphics.Color(30, 200, 30)
+    self.fps_counter.position = (10, 10)
+
+    self.fps_clock = sfml.system.Clock()
 
   def listen(self):
     for event in self.window.events:
@@ -39,20 +42,38 @@ class Simulation():
         if sfml.window.Keyboard.is_key_pressed(sfml.window.Keyboard.SPACE):
           pass
 
+        if sfml.window.Keyboard.is_key_pressed(sfml.window.Keyboard.RIGHT):
+          for entity in filter(lambda x: x.type is "automata", self.entities):
+            entity.shape.rotation += 1
+
+        if sfml.window.Keyboard.is_key_pressed(sfml.window.Keyboard.LEFT):
+          for entity in filter(lambda x: x.type is "automata", self.entities):
+            entity.shape.rotation -= 1
+
+      if type(event) is sfml.window.MouseButtonEvent:
+        if sfml.window.Mouse.is_button_pressed(sfml.window.Mouse.LEFT):
+          x, y = event.position
+          self.spawn("automata", x=x, y=y)
+
   def render(self):
     self.window.clear(sfml.graphics.Color(27, 24, 77))
+
+    if self.debug:
+      fps = 1000000.0 / self.fps_clock.restart().microseconds
+      self.fps_counter.string = "%d FPS" % fps
+      self.window.draw(self.fps_counter)
 
     for item in self.entities:
       self.window.draw(item)
 
     self.window.display()
 
-  def spawn(self, entity_type):
+  def spawn(self, entity_type, x=None, y=None):
     height, width = self.window.size
 
-    entity_id = self.gen_id()
-    pos_x = random.randrange(round(height * 0.1), round(height * 0.9))
-    pos_y = random.randrange(round(width * 0.1), round(width * 0.9))
+    entity_id = util.gen_id()
+    pos_x = x or random.randrange(round(height * 0.1), round(height * 0.9))
+    pos_y = y or random.randrange(round(width * 0.1), round(width * 0.9))
 
     if entity_type == "automata":
       entity = Automata(entity_id, pos_x, pos_y, debug=self.debug)
@@ -65,6 +86,9 @@ class Simulation():
   def step(self):
     for entity in self.entities:
       entity.step()
+
+      if entity.objective in ["eat", "eat!", "mate"] and entity.target is None:
+        entity.target = util.find_target(entity, self.entities)
 
     if self.algae_timer.elapsed_time.seconds > 10:
       if random.random() <= 0.5:
