@@ -1,14 +1,15 @@
 import sfml
 import math
+import util
 import random
 
 class Automata(sfml.graphics.Drawable):
-  def __init__(self, entity_id, x, y, debug=False):
+  def __init__(self, entity_id, x, y, global_vars={}):
     sfml.graphics.Drawable.__init__(self)
 
     self.type = "automata"
     self.spawning = True
-    self.debug = debug
+    self.global_vars = global_vars
     self.shape = sfml.graphics.CircleShape(15.0, 3)
     self.shape.position = (x, y)
     self.shape.fill_color = sfml.graphics.Color(255, 255, 255, 150)
@@ -29,15 +30,20 @@ class Automata(sfml.graphics.Drawable):
     self.health = 7
     self.speed = 1
     
-    self.hunger_ticker = sfml.system.Clock()
     self.age_ticker = sfml.system.Clock()
+    self.hunger_ticker = sfml.system.Clock()
     self.spawn_ticker = sfml.system.Clock()
+    self.mating_ticker = sfml.system.Clock()
+    self.movement_ticker = sfml.system.Clock()
 
     self.objective = "spawn"
     self.target = None
     self.aim = self.shape.position
 
-    if debug:
+    # For emitting state changes. algae eaten, mating, etc.
+    self.events = []
+
+    if self.global_vars.get("debug"):
       self.font_roboto = sfml.graphics.Font.from_file("resources/Roboto-Light.ttf")
       self.debug_text = sfml.graphics.Text(self.debug_data(), self.font_roboto, 12)
       self.debug_text.color = sfml.graphics.Color(30, 200, 30)
@@ -52,7 +58,7 @@ class Automata(sfml.graphics.Drawable):
       self.debug_direction[1].position = self.shape.position
 
   def debug_data(self):
-    if self.debug is False:
+    if not self.global_vars.get("debug"):
       return False
 
     if self.target:
@@ -76,7 +82,7 @@ class Automata(sfml.graphics.Drawable):
   def draw(self, target, states):
     target.draw(self.shape, states)
 
-    if self.debug:
+    if self.global_vars.get("debug"):
       self.debug_text.string = self.debug_data()
       target.draw(self.debug_text, states)
 
@@ -95,29 +101,63 @@ class Automata(sfml.graphics.Drawable):
         target.draw(self.debug_target, states)
 
   def calculate_position(self):
-    self.shape.rotate(self.rotational_velocity * self.speed)
+    base_speed = self.speed
+
+    if self.objective is "eat!":
+      self.base_speed *= 1.5
+
+    if self.rotational_velocity is not 0:
+      self.shape.rotate(self.rotational_velocity * base_speed)
 
     if self.directional_velocity is not 0:
       x, y = self.shape.position
-      x_velocity = self.directional_velocity * math.cos(self.shape.rotation)
-      y_velocity = self.directional_velocity * math.sin(self.shape.rotation)
+      x_velocity = (self.directional_velocity * base_speed) * math.sin(math.radians(self.shape.rotation))
+      y_velocity = (self.directional_velocity * base_speed) * math.cos(math.radians(self.shape.rotation))
+      #x_velocity = self.directional_velocity * math.cos(math.radians(self.shape.rotation))
+      #y_velocity = self.directional_velocity * math.sin(math.radians(self.shape.rotation))
 
-      self.set_position(x + x_velocity, y + y_velocity)
+      self.set_position(x + x_velocity, y + -y_velocity)
 
   def choose_action(self):
-    if self.objective is "eat" or self.objective is "eat!":
-      if self.target:
-        degrees = self.get_angle_to_target()
+    if self.target:
+      degrees = self.get_angle_to_target()
 
-        if degrees < 0:
-          self.rotational_velocity += 0.001
+      if degrees < 0:
+        self.rotational_velocity += 0.001
 
-        elif degrees > 0:
-          self.rotational_velocity -= 0.001
+      elif degrees > 0:
+        self.rotational_velocity -= 0.001
 
-        if round(degrees) is 0:
-          self.rotational_velocity = 0
-          self.directional_velocity += 0.001
+      if 5 < abs(round(degrees)) <= 10:
+        #if self.movement_ticker.elapsed_time.milliseconds > 500:
+        #  self.directional_velocity += 0.0025
+        
+        self.directional_velocity += 0.001
+
+      elif abs(round(degrees)) <= 5:
+        #if self.movement_ticker.elapsed_time.milliseconds > 500:
+        #  self.directional_velocity += 0.005
+        
+        self.directional_velocity += 0.003
+
+      elif round(degrees) is 0:
+        #if self.movement_ticker.elapsed_time.milliseconds > 500:
+        #  self.directional_velocity += 0.01
+
+        self.directional_velocity += 0.005
+
+      distance_to_target = util.distance(self.shape.position, self.target.shape.position)
+      
+      if distance_to_target < 50:
+        if self.objective in ["eat", "eat!"]:
+          self.eat()
+
+        if self.objective is "mate":
+          self.mate()
+          self.mating_ticker.restart()
+
+    if self.objective is "idle":
+      pass
 
   def choose_objective(self):
     if self.hunger_ticker.elapsed_time.seconds > 2:
@@ -125,7 +165,7 @@ class Automata(sfml.graphics.Drawable):
       self.health -= 0.25
 
     if 6 < self.health:
-      if self.age > 5:
+      if self.age >= 5 and self.mating_ticker.elapsed_time.seconds > 10:
         self.objective = "mate"
       else:
         self.objective = "idle"
@@ -139,8 +179,41 @@ class Automata(sfml.graphics.Drawable):
 
     if self.health < 0:
       self.objective = "die"
+      
+      self.directional_velocity = 0
+      self.rotational_velocity = 0
 
-  def get_angle_to_target(self):
+      self.events.append({
+        "type": "die",
+        "subject": self.id, 
+        "target": self.id
+      })
+
+  def decay_velocity(self):
+    # Decay directional velocity
+    if self.directional_velocity > 0:
+      self.directional_velocity -= 0.0005
+
+    # Decay rotational velocity
+    if abs(self.rotational_velocity) > 0:
+      if self.rotational_velocity > 0:
+        self.rotational_velocity -= 0.0008
+
+      if self.rotational_velocity < 0:
+        self.rotational_velocity += 0.0008
+
+  def eat(self):
+    self.health += 3
+    self.events.append({
+      "type": "eat",
+      "subject": self.id, 
+      "target": self.target.id
+    })
+
+    del self.target
+    self.target = None
+
+  def get_angle_to_target(self, convert=True):
     if not self.target:
       return False
         
@@ -154,14 +227,21 @@ class Automata(sfml.graphics.Drawable):
     degrees = math.degrees(angle1 - angle2)
 
     # Convert to +- 1-180
-    if degrees > 180:
-      return -(180 + (180 - degrees))
+    if degrees > 180 and convert:
+      return degrees - 360
 
     else:
       return degrees
 
+  def mate(self):
+    self.events.append({
+      "type": "mate",
+      "subject": self.id, 
+      "target": self.target.id
+    })
+
   def set_position(self, x, y):
-    if self.debug:
+    if self.global_vars.get("debug"):
       self.debug_text.position = (x + 25, y - 75)
       self.debug_target[0].position = (x, y)
       self.debug_direction[0].position = (x, y)
@@ -192,8 +272,14 @@ class Automata(sfml.graphics.Drawable):
     self.update_aim()
     self.choose_objective()
     self.choose_action()
+    self.decay_velocity()
 
-    return self.objective
+    emit = self.events
+
+    del self.events
+    self.events = []
+
+    return emit
 
   def update_aim(self):
     direction_x = (75 * math.sin(math.radians(self.shape.rotation))) + self.shape.position.x

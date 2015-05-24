@@ -1,12 +1,12 @@
 import sfml
 
 class Algae(sfml.graphics.Drawable):
-  def __init__(self, entity_id, x, y, debug=False):
+  def __init__(self, entity_id, x, y, global_vars={}):
     sfml.graphics.Drawable.__init__(self)
 
     self.type = "algae"
     self.spawning = True
-    self.debug = debug
+    self.global_vars = global_vars
     self.shape = sfml.graphics.CircleShape(3.0, 6)
     self.shape.position = (x, y)
     self.shape.fill_color = sfml.graphics.Color(170, 220, 170, 100)
@@ -25,14 +25,16 @@ class Algae(sfml.graphics.Drawable):
     self.age_ticker = sfml.system.Clock()
     self.spawn_ticker = sfml.system.Clock()
 
-    if debug:
+    self.events = []
+
+    if self.global_vars.get("debug"):
       self.font_roboto = sfml.graphics.Font.from_file("resources/Roboto-Light.ttf")
       self.debug_text = sfml.graphics.Text(self.debug_data(), self.font_roboto, 12)
       self.debug_text.color = sfml.graphics.Color(30, 200, 30)
       self.debug_text.position = (self.x + 15, self.y - 15)
 
   def debug_data(self):
-    if self.debug is False:
+    if not self.global_vars.get("debug"):
       return False
 
     return "Age: {age}".format(age=self.age)
@@ -40,7 +42,7 @@ class Algae(sfml.graphics.Drawable):
   def draw(self, target, states):
     target.draw(self.shape, states)
 
-    if self.debug:
+    if self.global_vars.get("debug"):
       self.debug_text.string = self.debug_data()
       target.draw(self.debug_text, states)
 
@@ -57,3 +59,10 @@ class Algae(sfml.graphics.Drawable):
     if self.age_ticker.elapsed_time.seconds > 5:
       self.age_ticker.restart()
       self.age += 1
+
+    emit = self.events
+
+    del self.events
+    self.events = []
+    
+    return emit 

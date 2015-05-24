@@ -8,14 +8,14 @@ from models.algae import Algae
 
 class Simulation():
   def __init__(self):
-    self.debug = True
+    self.global_vars = { "debug": True }
     settings = sfml.window.ContextSettings(antialiasing=2)
     self.window = sfml.graphics.RenderWindow(sfml.window.VideoMode(1600, 900), "Automata", sfml.window.Style.DEFAULT, settings)
     self.window.framerate_limit = 120
 
     self.entities = deque()
 
-    for x in range(1):
+    for x in range(5):
       self.spawn("automata")
 
     for x in range(20):
@@ -30,6 +30,31 @@ class Simulation():
 
     self.fps_clock = sfml.system.Clock()
 
+  def handle_events(self, local_events):
+    # Future animations go here
+    for event in local_events:
+      print(event)
+      if event["type"] is "eat":
+        new_entities = filter(lambda x: x.id is not event['target'], self.entities)
+        self.entities = deque(new_entities)
+
+      if event["type"] is "die":
+        new_entities = filter(lambda x: x.id is not event['target'], self.entities)
+        self.entities = deque(new_entities)
+
+      if event["type"] is "mate":
+        checksum = lambda n: sum([ord(x) for x in n])
+
+        # Mother is whichever has the larger checksum
+        if checksum(event['subject']) > checksum(event['target']):
+          entity = list(filter(lambda x: x.id is event['subject'], self.entities))[0]
+          position = entity.shape.position
+          
+          position.x += random.randrange(-15, 15)
+          position.y += random.randrange(-15, 15)
+
+          self.spawn("automata", x=position.x, y=position.y)
+
   def listen(self):
     for event in self.window.events:
       if type(event) is sfml.window.CloseEvent:
@@ -40,25 +65,33 @@ class Simulation():
           self.window.close()
           
         if sfml.window.Keyboard.is_key_pressed(sfml.window.Keyboard.SPACE):
-          pass
+          for entity in filter(lambda x: x.type is "automata", self.entities):
+            entity.directional_velocity += 0.5
 
-        if self.debug and sfml.window.Keyboard.is_key_pressed(sfml.window.Keyboard.RIGHT):
+        if self.global_vars.get("debug") and sfml.window.Keyboard.is_key_pressed(sfml.window.Keyboard.RIGHT):
           for entity in filter(lambda x: x.type is "automata", self.entities):
             entity.shape.rotation += 1
 
-        if self.debug and sfml.window.Keyboard.is_key_pressed(sfml.window.Keyboard.LEFT):
+        if self.global_vars.get("debug") and sfml.window.Keyboard.is_key_pressed(sfml.window.Keyboard.LEFT):
           for entity in filter(lambda x: x.type is "automata", self.entities):
             entity.shape.rotation -= 1
 
+        if sfml.window.Keyboard.is_key_pressed(sfml.window.Keyboard.D):
+          self.global_vars['debug'] = not self.global_vars['debug']
+
       if type(event) is sfml.window.MouseButtonEvent:
+        x, y = event.position
+
         if sfml.window.Mouse.is_button_pressed(sfml.window.Mouse.LEFT):
-          x, y = event.position
           self.spawn("automata", x=x, y=y)
+
+        if sfml.window.Mouse.is_button_pressed(sfml.window.Mouse.RIGHT):
+          self.spawn("algae", x=x, y=y)
 
   def render(self):
     self.window.clear(sfml.graphics.Color(27, 24, 77))
 
-    if self.debug:
+    if self.global_vars.get("debug"):
       fps = 1000000.0 / self.fps_clock.restart().microseconds
       self.fps_counter.string = "%d FPS" % fps
       self.window.draw(self.fps_counter)
@@ -76,19 +109,24 @@ class Simulation():
     pos_y = y or random.randrange(round(width * 0.1), round(width * 0.9))
 
     if entity_type == "automata":
-      entity = Automata(entity_id, pos_x, pos_y, debug=self.debug)
+      entity = Automata(entity_id, pos_x, pos_y, global_vars=self.global_vars)
     
     elif entity_type == "algae":
-      entity = Algae(entity_id, pos_x, pos_y, debug=self.debug)
+      entity = Algae(entity_id, pos_x, pos_y, global_vars=self.global_vars)
 
     self.entities.append(entity)
 
   def step(self):
-    for entity in self.entities:
-      entity.step()
+    local_events = []
 
-      if entity.objective in ["eat", "eat!", "mate"] and entity.target is None:
+    for entity in self.entities:
+      response = entity.step()
+      local_events.extend(response)
+
+      if entity.objective in ["eat", "eat!", "mate"]:
         entity.target = util.find_target(entity, self.entities)
+
+    self.handle_events(local_events)
 
     if self.algae_timer.elapsed_time.seconds > 10:
       if random.random() <= 0.5:
