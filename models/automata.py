@@ -35,6 +35,7 @@ class Automata(sfml.graphics.Drawable):
 
     self.objective = "spawn"
     self.target = None
+    self.aim = self.shape.position
 
     if debug:
       self.font_roboto = sfml.graphics.Font.from_file("resources/Roboto-Light.ttf")
@@ -44,7 +45,7 @@ class Automata(sfml.graphics.Drawable):
 
       self.debug_target = sfml.graphics.VertexArray(sfml.graphics.PrimitiveType.LINES_STRIP, 2)
       self.debug_target[0].position = self.shape.position
-      self.debug_target[1].position = self.shape.position
+      self.debug_target[1].position = self.aim
 
       self.debug_direction = sfml.graphics.VertexArray(sfml.graphics.PrimitiveType.LINES_STRIP, 2)
       self.debug_direction[0].position = self.shape.position
@@ -62,12 +63,14 @@ class Automata(sfml.graphics.Drawable):
         angle=self.get_angle_to_target()
       )
 
-    return "Age: {age}\nHunger: {health}\nObjective: {objective}\nTarget: {target}\nRotation: {rotation}".format(
+    return "Age: {age}\nHunger: {health}\nObjective: {objective}\nTarget: {target}\nRotation: {rotation}\nVelocity: d{d_velocity} r{r_velocity}".format(
         age=self.age,
         health=self.health,
         objective=self.objective,
         target=target if self.target else "None",
-        rotation=self.shape.rotation
+        rotation=self.shape.rotation,
+        d_velocity=self.directional_velocity,
+        r_velocity=self.rotational_velocity
       )
 
   def draw(self, target, states):
@@ -77,27 +80,44 @@ class Automata(sfml.graphics.Drawable):
       self.debug_text.string = self.debug_data()
       target.draw(self.debug_text, states)
 
-      direction_x = (75 * math.sin(math.radians(self.shape.rotation))) + self.shape.position.x
-      direction_y = -(75 * math.cos(math.radians(self.shape.rotation))) + self.shape.position.y
-      self.debug_direction[1].position = (direction_x, direction_y)
+      self.debug_direction[1].position = self.aim
       target.draw(self.debug_direction)
 
       if self.target:
+        if round(self.get_angle_to_target()) is 0:
+          self.debug_target[0].color = sfml.graphics.Color(150, 255, 150)
+          self.debug_target[1].color = sfml.graphics.Color(150, 255, 150)
+        else:
+          self.debug_target[0].color = sfml.graphics.Color(255, 255, 255)
+          self.debug_target[1].color = sfml.graphics.Color(255, 255, 255)
+
         self.debug_target[1].position = self.target.shape.position
         target.draw(self.debug_target, states)
 
   def calculate_position(self):
+    self.shape.rotate(self.rotational_velocity * self.speed)
+
     if self.directional_velocity is not 0:
       x, y = self.shape.position
-      x_velocity = self.rotational_velocity * math.cos(self.shape.rotation)
-      y_velocity = self.rotational_velocity * math.sin(self.shape.rotation)
+      x_velocity = self.directional_velocity * math.cos(self.shape.rotation)
+      y_velocity = self.directional_velocity * math.sin(self.shape.rotation)
 
       self.set_position(x + x_velocity, y + y_velocity)
 
   def choose_action(self):
     if self.objective is "eat" or self.objective is "eat!":
       if self.target:
-        pass
+        degrees = self.get_angle_to_target()
+
+        if degrees < 0:
+          self.rotational_velocity += 0.001
+
+        elif degrees > 0:
+          self.rotational_velocity -= 0.001
+
+        if round(degrees) is 0:
+          self.rotational_velocity = 0
+          self.directional_velocity += 0.001
 
   def choose_objective(self):
     if self.hunger_ticker.elapsed_time.seconds > 2:
@@ -132,7 +152,7 @@ class Automata(sfml.graphics.Drawable):
     angle2 = math.atan2(target.y - origin.y, target.x - origin.x)
 
     degrees = math.degrees(angle1 - angle2)
-    
+
     # Convert to +- 1-180
     if degrees > 180:
       return -(180 + (180 - degrees))
@@ -143,6 +163,8 @@ class Automata(sfml.graphics.Drawable):
   def set_position(self, x, y):
     if self.debug:
       self.debug_text.position = (x + 25, y - 75)
+      self.debug_target[0].position = (x, y)
+      self.debug_direction[0].position = (x, y)
 
     self.shape.position = (x, y)
 
@@ -166,10 +188,14 @@ class Automata(sfml.graphics.Drawable):
     else:
       self.speed = 0.2
 
-    self.shape.rotate(self.rotational_velocity * self.speed)
     self.calculate_position()
-
+    self.update_aim()
     self.choose_objective()
     self.choose_action()
 
     return self.objective
+
+  def update_aim(self):
+    direction_x = (75 * math.sin(math.radians(self.shape.rotation))) + self.shape.position.x
+    direction_y = -(75 * math.cos(math.radians(self.shape.rotation))) + self.shape.position.y
+    self.aim = (direction_x, direction_y)
