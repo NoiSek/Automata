@@ -43,19 +43,18 @@ class Automata(sfml.graphics.Drawable):
     # For emitting state changes. algae eaten, mating, etc.
     self.events = []
 
-    if self.global_vars.get("debug"):
-      self.font_roboto = sfml.graphics.Font.from_file("resources/Roboto-Light.ttf")
-      self.debug_text = sfml.graphics.Text(self.debug_data(), self.font_roboto, 12)
-      self.debug_text.color = sfml.graphics.Color(30, 200, 30)
-      self.debug_text.position = (self.x + 25, self.y - 75)
+    self.font_roboto = sfml.graphics.Font.from_file("resources/Roboto-Light.ttf")
+    self.debug_text = sfml.graphics.Text(self.debug_data(), self.font_roboto, 12)
+    self.debug_text.color = sfml.graphics.Color(30, 200, 30)
+    self.debug_text.position = (self.x + 25, self.y - 75)
 
-      self.debug_target = sfml.graphics.VertexArray(sfml.graphics.PrimitiveType.LINES_STRIP, 2)
-      self.debug_target[0].position = self.shape.position
-      self.debug_target[1].position = self.aim
+    self.debug_target = sfml.graphics.VertexArray(sfml.graphics.PrimitiveType.LINES_STRIP, 2)
+    self.debug_target[0].position = self.shape.position
+    self.debug_target[1].position = self.aim
 
-      self.debug_direction = sfml.graphics.VertexArray(sfml.graphics.PrimitiveType.LINES_STRIP, 2)
-      self.debug_direction[0].position = self.shape.position
-      self.debug_direction[1].position = self.shape.position
+    self.debug_direction = sfml.graphics.VertexArray(sfml.graphics.PrimitiveType.LINES_STRIP, 2)
+    self.debug_direction[0].position = self.shape.position
+    self.debug_direction[1].position = self.shape.position
 
   def debug_data(self):
     if not self.global_vars.get("debug"):
@@ -128,23 +127,24 @@ class Automata(sfml.graphics.Drawable):
       elif degrees > 0:
         self.rotational_velocity -= 0.001
 
-      if 5 < abs(round(degrees)) <= 10:
-        #if self.movement_ticker.elapsed_time.milliseconds > 500:
-        #  self.directional_velocity += 0.0025
-        
-        self.directional_velocity += 0.001
+      if self.directional_velocity < 0.45:
+        if 5 < abs(round(degrees)) <= 10:
+          #if self.movement_ticker.elapsed_time.milliseconds > 500:
+          #  self.directional_velocity += 0.0025
+          
+          self.directional_velocity += 0.001
 
-      elif abs(round(degrees)) <= 5:
-        #if self.movement_ticker.elapsed_time.milliseconds > 500:
-        #  self.directional_velocity += 0.005
-        
-        self.directional_velocity += 0.003
+        elif abs(round(degrees)) <= 5:
+          #if self.movement_ticker.elapsed_time.milliseconds > 500:
+          #  self.directional_velocity += 0.005
+          
+          self.directional_velocity += 0.003
 
-      elif round(degrees) is 0:
-        #if self.movement_ticker.elapsed_time.milliseconds > 500:
-        #  self.directional_velocity += 0.01
+        elif round(degrees) is 0:
+          #if self.movement_ticker.elapsed_time.milliseconds > 500:
+          #  self.directional_velocity += 0.01
 
-        self.directional_velocity += 0.005
+          self.directional_velocity += 0.005
 
       distance_to_target = util.distance(self.shape.position, self.target.shape.position)
       
@@ -160,18 +160,18 @@ class Automata(sfml.graphics.Drawable):
       pass
 
   def choose_objective(self):
-    if self.hunger_ticker.elapsed_time.seconds > 2:
+    if self.hunger_ticker.elapsed_time.seconds > 1:
       self.hunger_ticker.restart()
-      self.health -= 0.25
+      self.health -= 0.05
 
-    if 6 < self.health:
+    if 7 < self.health:
       if self.age >= 5 and self.mating_ticker.elapsed_time.seconds > 10:
         self.objective = "mate"
       else:
         self.objective = "idle"
         self.target = None
 
-    if 3 < self.health <= 6:
+    if 3 < self.health <= 7:
       self.objective = "eat"
 
     if 0 < self.health <= 3:
@@ -192,7 +192,11 @@ class Automata(sfml.graphics.Drawable):
   def decay_velocity(self):
     # Decay directional velocity
     if self.directional_velocity > 0:
-      self.directional_velocity -= 0.0005
+      if self.directional_velocity - 0.0007 >= 0:
+        self.directional_velocity -= 0.0007
+
+      else:
+        self.directional_velocity -= 0.0001
 
     # Decay rotational velocity
     if abs(self.rotational_velocity) > 0:
@@ -248,6 +252,25 @@ class Automata(sfml.graphics.Drawable):
 
     self.shape.position = (x, y)
 
+  def set_color(self):
+    if self.objective is "mate":
+      self.shape.fill_color = sfml.graphics.Color(235, 56, 169, 150)
+      self.shape.outline_color = sfml.graphics.Color(235, 56, 169)
+
+    elif self.objective in ["eat", "eat!", "idle"]:
+      hue, saturation, lightness = 0, 1, 0.65 
+      scale = lambda x: ((x / 10) * 115) / 360
+
+      if self.health > 10:
+        hue = 115 / 360
+
+      else:
+        hue = scale(self.health)
+
+      r, g, b = util.hsl_to_rgb(hue, saturation, lightness)
+      self.shape.fill_color = sfml.graphics.Color(r, g, b, 150)
+      self.shape.outline_color = sfml.graphics.Color(r, g, b)
+
   def step(self):
     if self.spawning:
       if self.spawn_ticker.elapsed_time.milliseconds > 25:
@@ -273,6 +296,7 @@ class Automata(sfml.graphics.Drawable):
     self.choose_objective()
     self.choose_action()
     self.decay_velocity()
+    self.set_color()
 
     emit = self.events
 

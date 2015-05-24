@@ -1,4 +1,5 @@
 import random
+import colorsys
 
 from collections import deque
 from string import ascii_letters, digits
@@ -31,3 +32,8 @@ def find_target(searcher, entities):
     candidates = sorted(mates, key=lambda x: distance(origin, x.shape.position))
 
     return candidates[0] if candidates else None
+
+def hsl_to_rgb(h, s, l):
+  values = colorsys.hls_to_rgb(h, l, s)
+  values = [round(x * 255) for x in values]
+  return values

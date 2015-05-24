@@ -18,7 +18,7 @@ class Simulation():
     for x in range(5):
       self.spawn("automata")
 
-    for x in range(20):
+    for x in range(50):
       self.spawn("algae")
 
     self.algae_timer = sfml.system.Clock()

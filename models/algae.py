@@ -26,12 +26,11 @@ class Algae(sfml.graphics.Drawable):
     self.spawn_ticker = sfml.system.Clock()
 
     self.events = []
-
-    if self.global_vars.get("debug"):
-      self.font_roboto = sfml.graphics.Font.from_file("resources/Roboto-Light.ttf")
-      self.debug_text = sfml.graphics.Text(self.debug_data(), self.font_roboto, 12)
-      self.debug_text.color = sfml.graphics.Color(30, 200, 30)
-      self.debug_text.position = (self.x + 15, self.y - 15)
+    
+    self.font_roboto = sfml.graphics.Font.from_file("resources/Roboto-Light.ttf")
+    self.debug_text = sfml.graphics.Text(self.debug_data(), self.font_roboto, 12)
+    self.debug_text.color = sfml.graphics.Color(30, 200, 30)
+    self.debug_text.position = (self.x + 15, self.y - 15)
 
   def debug_data(self):
     if not self.global_vars.get("debug"):
