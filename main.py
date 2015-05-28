@@ -15,7 +15,7 @@ class Simulation():
 
     self.entities = deque()
 
-    for x in range(5):
+    for x in range(10):
       self.spawn("automata")
 
     for x in range(50):
@@ -68,6 +68,9 @@ class Simulation():
           for entity in filter(lambda x: x.type is "automata", self.entities):
             entity.directional_velocity += 0.5
 
+        if sfml.window.Keyboard.is_key_pressed(sfml.window.Keyboard.D):
+          self.global_vars['debug'] = not self.global_vars['debug']
+
         if self.global_vars.get("debug") and sfml.window.Keyboard.is_key_pressed(sfml.window.Keyboard.RIGHT):
           for entity in filter(lambda x: x.type is "automata", self.entities):
             entity.shape.rotation += 1
@@ -76,17 +79,24 @@ class Simulation():
           for entity in filter(lambda x: x.type is "automata", self.entities):
             entity.shape.rotation -= 1
 
-        if sfml.window.Keyboard.is_key_pressed(sfml.window.Keyboard.D):
-          self.global_vars['debug'] = not self.global_vars['debug']
+        if self.global_vars.get("debug") and sfml.window.Keyboard.is_key_pressed(sfml.window.Keyboard.Q):
+          for entity in filter(lambda x: x.type is "automata", self.entities):
+            entity.rotational_velocity -= 0.1
+
+        if self.global_vars.get("debug") and sfml.window.Keyboard.is_key_pressed(sfml.window.Keyboard.E):
+          for entity in filter(lambda x: x.type is "automata", self.entities):
+            entity.rotational_velocity += 0.1
 
       if type(event) is sfml.window.MouseButtonEvent:
         x, y = event.position
 
         if sfml.window.Mouse.is_button_pressed(sfml.window.Mouse.LEFT):
           self.spawn("automata", x=x, y=y)
+          print("Spawned Automata at %d, %d" % (x, y))
 
         if sfml.window.Mouse.is_button_pressed(sfml.window.Mouse.RIGHT):
           self.spawn("algae", x=x, y=y)
+          print("Spawned Algae at %d, %d" % (x, y))
 
   def render(self):
     self.window.clear(sfml.graphics.Color(27, 24, 77))
@@ -128,7 +138,7 @@ class Simulation():
 
     self.handle_events(local_events)
 
-    if self.algae_timer.elapsed_time.seconds > 10:
+    if self.algae_timer.elapsed_time.seconds > 2:
       if random.random() <= 0.5:
         self.algae_timer.restart()
         self.spawn("algae")
