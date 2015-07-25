@@ -24,11 +24,11 @@ class Algae(sfml.graphics.Drawable):
 
     self.age_ticker = sfml.system.Clock()
     self.spawn_ticker = sfml.system.Clock()
+    self.grow_ticker = sfml.system.Clock()
 
     self.events = []
     
-    self.font_roboto = sfml.graphics.Font.from_file("resources/Roboto-Light.ttf")
-    self.debug_text = sfml.graphics.Text(self.debug_data(), self.font_roboto, 12)
+    self.debug_text = sfml.graphics.Text(self.debug_data(), self.global_vars['font'], 12)
     self.debug_text.color = sfml.graphics.Color(30, 200, 30)
     self.debug_text.position = (self.x + 15, self.y - 15)
 
@@ -58,6 +58,15 @@ class Algae(sfml.graphics.Drawable):
     if self.age_ticker.elapsed_time.seconds > 5:
       self.age_ticker.restart()
       self.age += 1
+
+    if self.grow_ticker.elapsed_time.seconds > 120:
+      if self.age > 15:
+        self.grow_ticker.restart()
+
+        self.events.append({
+          "type": "grow",
+          "subject": self.id
+        })
 
     emit = self.events
 

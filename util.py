@@ -28,7 +28,7 @@ def find_target(searcher, entities):
     return candidates[0] if candidates else None
 
   if searcher.objective is "mate":
-    mates = filter(lambda x: x.objective is "mate" and x.id is not searcher.id, entities)
+    mates = filter(lambda x: x.objective is "mate" and x.type is searcher.type and x.id is not searcher.id, entities)
     candidates = sorted(mates, key=lambda x: distance(origin, x.shape.position))
 
     return candidates[0] if candidates else None

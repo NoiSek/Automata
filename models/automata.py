@@ -12,7 +12,8 @@ class Automata(sfml.graphics.Drawable):
     self.global_vars = global_vars
     self.shape = sfml.graphics.CircleShape(15.0, 3)
     self.shape.position = (x, y)
-    self.shape.fill_color = sfml.graphics.Color(255, 255, 255, 150)
+    #self.shape.fill_color = sfml.graphics.Color(255, 255, 255, 150)
+    self.shape.fill_color = sfml.graphics.Color(200, 200, 200)
     self.shape.outline_color = sfml.graphics.Color(255, 255, 255)
     self.shape.outline_thickness = 2
     self.shape.origin = (15, 15)
@@ -43,8 +44,7 @@ class Automata(sfml.graphics.Drawable):
     # For emitting state changes. algae eaten, mating, etc.
     self.events = []
 
-    self.font_roboto = sfml.graphics.Font.from_file("resources/Roboto-Light.ttf")
-    self.debug_text = sfml.graphics.Text(self.debug_data(), self.font_roboto, 12)
+    self.debug_text = sfml.graphics.Text(self.debug_data(), self.global_vars['font'], 12)
     self.debug_text.color = sfml.graphics.Color(30, 200, 30)
     self.debug_text.position = (self.x + 25, self.y - 75)
 
@@ -105,11 +105,12 @@ class Automata(sfml.graphics.Drawable):
       
       if distance_to_target < 50:
         if self.objective in ["eat", "eat!"]:
-          self.eat()
+          if self.target.type is "algae":
+            self.eat()
 
-        if self.objective is "mate":
-          self.mate()
-          self.mating_ticker.restart()
+        elif self.objective is "mate":
+          if self.target.type is not "algae":
+            self.mate()
 
     if self.objective is "idle":
       pass
@@ -120,7 +121,7 @@ class Automata(sfml.graphics.Drawable):
       self.health -= 0.05
 
     if 7 < self.health:
-      if self.age >= 5 and self.mating_ticker.elapsed_time.seconds > 10:
+      if self.age >= 5 and self.mating_ticker.elapsed_time.seconds > 20:
         self.objective = "mate"
       else:
         self.objective = "idle"
@@ -204,14 +205,14 @@ class Automata(sfml.graphics.Drawable):
         target.draw(self.debug_target, states)
 
   def eat(self):
-    self.health += 3
+    self.health += 1.6
     self.events.append({
       "type": "eat",
       "subject": self.id, 
       "target": self.target.id
     })
 
-    del self.target
+    #del self.target
     self.target = None
 
   def get_angle_to_target(self, convert=True):
@@ -262,6 +263,9 @@ class Automata(sfml.graphics.Drawable):
     #  return degrees
 
   def mate(self):
+    self.health -= 1.5
+    self.mating_ticker.restart()
+    
     self.events.append({
       "type": "mate",
       "subject": self.id, 
@@ -293,6 +297,7 @@ class Automata(sfml.graphics.Drawable):
 
       r, g, b = util.hsl_to_rgb(hue, saturation, lightness)
       self.shape.fill_color = sfml.graphics.Color(r, g, b, 150)
+      #self.shape.fill_color = sfml.graphics.Color(max(0, r - 30), max(0, g - 30), max(0, b - 30))
       self.shape.outline_color = sfml.graphics.Color(r, g, b)
 
   def step(self):
@@ -324,7 +329,7 @@ class Automata(sfml.graphics.Drawable):
 
     emit = self.events
 
-    del self.events
+    #del self.events
     self.events = []
 
     return emit
