@@ -15,7 +15,7 @@ Conway tried to represent the behavior and nature of self balancing populations 
 
 Functions of life so small, they can hardly be called life so much as simple sets of instructions, logic gates, and programmed operations.
 
-You might call them Robots. Or, if you will, **Automata**.
+You might call them Robots. Or, if you will, ***Automata***.
 
 ## Todo
 
